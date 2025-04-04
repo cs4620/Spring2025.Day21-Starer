@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Ray Tracer 1.0</title>
+</head>
+
+<body>
+    <canvas id="canv"></canvas>
+    <script>
+
+        //Grab the canvas element, set its size, and get the 2d context
+        let canvas = document.querySelector("#canv")
+        const width = height = 640
+
+        canvas.width = width
+        canvas.height = width
+        let ctx = canvas.getContext("2d")
+
+        const imageData = ctx.getImageData(0, 0, width, height)
+
+        //Set up some constants for each of use
+        const x = r = 0, y = g = 1, z = b = 2
+
+        /**
+         * Add two vectors together
+         */
+        function add(p1, p2) {
+            return [p1[x] + p2[x], p1[y] + p2[y], p1[z] + p2[z]]
+        }
+
+        /**
+         * Subtract two vectors. Note that this means p2-p1
+         */
+        function minus(p1, p2) {
+            return [p2[x] - p1[x], p2[y] - p1[y], p2[z] - p1[z]]
+        }
+
+        /**
+         * Take the dot product of two vectors
+         */
+        function dot(p1, p2) {
+            return p2[x] * p1[x] + p2[y] * p1[y] + p2[z] * p1[z]
+        }
+
+        /**
+         * Take the cross product of two vectors
+         */
+        function cross(p1, p2) {
+            return [
+                p1[y] * p2[z] - p1[z] * p2[y],
+                p1[z] * p2[x] - p1[x] * p2[z],
+                p1[x] * p2[y] - p1[y] * p2[x],
+            ]
+        }
+
+        /**
+         * Scale a vector by a scalar
+         */
+        function scale(p, s) {
+            return [p[x] * s, p[y] * s, p[z] * s]
+        }
+
+        /**
+         * Get the length of a vector
+         */
+        function length(p) {
+            return Math.sqrt(p[x] ** 2 + p[y] ** 2 + p[z] ** 2)
+        }
+
+        /**
+         * Normalize a vector
+         */
+        function normalize(p) {
+            return [p[x] / length(p), p[y] / length(p), p[z] / length(p)]
+        }
+
+        function getNormal(triangle) {
+            let v0 = minus(triangle[1], triangle[0]) //Find the vector for the first leg of the triangle
+            let v1 = minus(triangle[2], triangle[1]) //Find the vector for the second leg of the triangle
+            return cross(v0, v1)
+        }
+
+        function rotateAroundY(p, angle) {
+            return [Math.cos(angle) * p[x] + Math.sin(angle) * p[z], p[y], -Math.sin(angle) * p[x] + Math.cos(angle) * p[z]]
+        }
+
+        function rotateTriangleAroundY(triangle, angle) {
+            let toReturn = []
+            for (let vector of triangle) {
+                toReturn.push(rotateAroundY(vector, angle))
+            }
+            return toReturn
+        }
+
+
+        /**
+         * Define the three points that make up our first triangle
+         */
+        let triangle1 = [
+            [-.5, -.5, 0],
+            [-.5, .5, 0],
+            [.5, .5, 0]
+        ]
+
+        let triangle2 = [
+            [0, -.5, -.5],
+            [0, -.5, .5],
+            [0, .5, .5]
+        ]
+
+        let triangles = [triangle1, triangle2]
+
+        let lights = []
+        lights.push({direction: [-1, 0, 0], color: [1, 1, 1]})
+
+
+
+
+        function render() {
+            triangle1 = rotateTriangleAroundY(triangle1, .1);
+            triangle2 = rotateTriangleAroundY(triangle2, .1)
+            triangles = [{ triangle: triangle1, color: [1, 0, 0] }, { triangle: triangle2, color: [0, 0, 1] }]
+            // triangle1 = rotateTriangleAroundY(triangle1, .1);
+            //Loop over every pixel in the canvas
+            for (let px = 0; px < width; px++) {
+                for (let py = 0; py < height; py++) {
+
+                    //Start by setting the background color
+                    //ctx.fillStyle = "rgb(0, 0, 0)" //Arbitrary color of the background
+                    //ctx.fillRect(px, py, 1, 1) //Fill that pixel
+                    let index = (px + py * width) * 4
+
+                    imageData.data[index] = 0
+                    imageData.data[index + 1] = 0
+                    imageData.data[index + 2] = 0
+                    imageData.data[index + 3] = 255
+
+                    let closestDistance = Number.MAX_VALUE
+
+                    for (let triangleSpec of triangles) {
+                        let triangle = triangleSpec.triangle
+
+                        //Part 1: Find the R and O
+                        let x3 = px / width * 2 - 1       //Get the x coordinate in [-1,1]
+                        let y3 = -1 * (py / height * 2 - 1)  //Get the y coordinate in [-1,1]. Note that we flip the y from being y-down to y-up
+                        let p = [x3, y3, 0]            //The final 3D point we are going to shoot our ray through
+                        let O = [0, 0, 1]               //The hard-coded origin of the camera
+                        let R = normalize(minus(O, p))  //The direction of the ray through this pixel
+
+                        //Part 2: Ray Plane Intersection
+                        let N = getNormal(triangle)                      //The normal of the triangle
+                        let D = -dot(N, triangle[0])            //The D value for the plane equation (from Ax+By+Cz+D=0)
+                        let T = (-D - dot(N, O)) / (dot(N, R))  //Solve for the time it takes to reach the collision point
+
+
+
+                        let P = add(O, scale(R, T))             //From the T variable, determine the location in 3D where the collision occurs
+
+                        //Part 3: Triangle inside test
+                        let v0 = minus(triangle[1], triangle[0]) //Find the vector for the first leg of the triangle
+                        let v1 = minus(triangle[2], triangle[1]) //Find the vector for the second leg of the triangle
+                        let v2 = minus(triangle[0], triangle[2]) //Find the vector for the third leg of the triangle
+
+                        //Find the vectors from each triangle point to the collision point
+                        let p0 = minus(P, triangle[0])
+                        let p1 = minus(P, triangle[1])
+                        let p2 = minus(P, triangle[2])
+
+                        //Find the cross products between each pair of vectors
+                        let c0 = cross(p0, v0)
+                        let c1 = cross(p1, v1)
+                        let c2 = cross(p2, v2)
+
+                        //Check if each dot product has a positive Z. If it does, then we are inside the triangle
+                        if (dot(c0, N) <= 0 && dot(c1, N) <= 0 && dot(c2, N) <= 0) {
+                            if (T >= closestDistance) continue
+
+                            if (T < closestDistance) {
+                                closestDistance = T
+                            }
+
+                            let ambient = [.1, .1, .1]
+                            let color = ambient
+
+                            for(let light of lights){
+                                let lightColor = light.color
+                                let d = dot(light.direction, N)
+                                if(d < 0) continue
+                                color[r] += d*triangleSpec.color[r]*light.color[r]
+                                color[g] += d*triangleSpec.color[g]*light.color[g]
+                                color[b] += d*triangleSpec.color[b]*light.color[b]
+
+                            }
+
+
+                            imageData.data[index] = color[r]*255
+                            imageData.data[index + 1] = color[g]*255
+                            imageData.data[index + 2] = color[b]*255
+
+                            //We are inside the triangle, i.e. there was a collision
+                            //ctx.fillStyle = triangleSpec.color //Arbitrarily color the pixel red
+                            //ctx.fillRect(px, py, 1, 1) //Fill that pixel
+                        }
+                       
+                    }
+
+                }
+            }
+            ctx.putImageData(imageData, 0, 0)
+            setTimeout(render, 0)
+        }
+
+        render()
+
+    </script>
+</body>
+
+</html>
