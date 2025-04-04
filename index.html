@@ -98,9 +98,9 @@
          * Define the three points that make up our first triangle
          */
         let triangle1 = [
-            [-.5, -.5, 0],
+            [.5, .5, 0],
             [-.5, .5, 0],
-            [.5, .5, 0]
+            [-.5, -.5, 0],
         ]
 
         let triangle2 = [
@@ -158,9 +158,9 @@
                         let P = add(O, scale(R, T))             //From the T variable, determine the location in 3D where the collision occurs
 
                         //Part 3: Triangle inside test
-                        let v0 = minus(triangle[1], triangle[0]) //Find the vector for the first leg of the triangle
-                        let v1 = minus(triangle[2], triangle[1]) //Find the vector for the second leg of the triangle
-                        let v2 = minus(triangle[0], triangle[2]) //Find the vector for the third leg of the triangle
+                        let v0 = minus(triangle[0], triangle[1]) //Find the vector for the first leg of the triangle
+                        let v1 = minus(triangle[1], triangle[2]) //Find the vector for the second leg of the triangle
+                        let v2 = minus(triangle[2], triangle[0]) //Find the vector for the third leg of the triangle
 
                         //Find the vectors from each triangle point to the collision point
                         let p0 = minus(P, triangle[0])
@@ -173,7 +173,7 @@
                         let c2 = cross(p2, v2)
 
                         //Check if each dot product has a positive Z. If it does, then we are inside the triangle
-                        if (dot(c0, N) <= 0 && dot(c1, N) <= 0 && dot(c2, N) <= 0) {
+                        if (dot(c0, N) >= 0 && dot(c1, N) >= 0 && dot(c2, N) >= 0) {
                             if (T >= closestDistance) continue
 
                             if (T < closestDistance) {
@@ -186,13 +186,11 @@
                             for(let light of lights){
                                 let lightColor = light.color
                                 let d = dot(light.direction, N)
-                                if(d < 0) continue
+                                if(d < 0) d*= -1
                                 color[r] += d*triangleSpec.color[r]*light.color[r]
                                 color[g] += d*triangleSpec.color[g]*light.color[g]
                                 color[b] += d*triangleSpec.color[b]*light.color[b]
-
                             }
-
 
                             imageData.data[index] = color[r]*255
                             imageData.data[index + 1] = color[g]*255
